@@ -4,8 +4,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const server_1 = __importDefault(require("./server"));
-console.log(process.env.DB);
 const { PORT, DB, HOST, SCHEME } = process.env;
 server_1.default.listen(Number(PORT), String(HOST), () => {
+    console.log(`[DB]: SQLite Server running, using ${DB} as permanent storage`);
     console.log(`[server]: Server is running at ${SCHEME}://${HOST}:${PORT}`);
 });

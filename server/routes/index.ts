@@ -1,9 +1,6 @@
 import userRouter from "./users";
 import contestRouter from "./contests";
-import app from "../app";
 
+const AppRoutes = { userRouter, contestRouter};
 
-app.use (contestRouter);
-app.use (userRouter);
-
-export default app;
+export default AppRoutes;
