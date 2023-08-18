@@ -37,6 +37,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
 const Controllers = __importStar(require("../controllers"));
+const user_class_1 = __importDefault(require("../models/user.class"));
 const userRouter = express_1.default.Router();
 userRouter.route('/api/users')
     .get((req, res) => __awaiter(void 0, void 0, void 0, function* () {
@@ -71,4 +72,68 @@ userRouter.route('/api/users/:id')
     const data = yield Controllers.deleteAccount(Number(id));
     return res.send(data);
 }));
+userRouter.route('/api/login')
+    .all((req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+    console.log(req);
+    next();
+    /*
+    var form = new multiparty.Form();
+    //var image;
+    var user;
+    var pwd;
+    var file;
+    form.on('error', next );
+    form.on('close', next );
+    
+    // listen on field event for title
+    form.on('field', function(name, val){
+      req.form = {} ;
+      req.form[name] = val ;
+    });
+    
+    // listen on part event for image file
+    form.on('part', function(part){
+      if (!part.filename) return;
+      if (part.name !== 'image') return part.resume();
+      file = {};
+      file.filename = part.filename;
+      file.size = 0;
+      
+      part.on('data', function(buf){
+        file.size += buf.length;
+      });
+    });
+    
+    
+    // parse the form
+    form.parse(req);
+    })
+    */
+}))
+    .post((req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+    const { user, pwd } = req.body;
+    console.log('**************************');
+    if (!user.length)
+        throw new Error('no valid values');
+    let isEmail = String(user).includes('@');
+    const data = yield Controllers.getAccountByNameOrMail(user, isEmail);
+    if (data) {
+        const userObj = new user_class_1.default(data.id, data.name, data.createdBy, data.status, data.createdDate, data.modifiedDate);
+        res.cookie('user', JSON.stringify(userObj));
+        return res.send(userObj);
+    }
+    else {
+        return res.status(400).end();
+    }
+})); /*
+.put (async (req: Request, res: Response) => {
+  const data = await Controllers.updateAccount (req.body);
+  return res.send (data);
+})
+.delete (async (req: Request, res: Response) => {
+  
+  const {id} = req.params;
+  const data = await Controllers.deleteAccount (Number (id));
+  return res.send (data);
+});*/
 exports.default = userRouter;

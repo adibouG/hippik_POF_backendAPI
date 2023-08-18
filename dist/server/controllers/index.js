@@ -12,10 +12,28 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deleteParticipant = exports.updateParticipant = exports.createParticipant = exports.checkParticipant = exports.getAllParticipants = exports.getParticipants = exports.getParticipant = exports.deleteTrial = exports.updateTrial = exports.checkTrial = exports.createTrial = exports.getAllTrials = exports.getTrials = exports.getTrial = exports.deleteContest = exports.updateContest = exports.createContest = exports.checkContest = exports.getContests = exports.getContest = exports.deleteAccount = exports.updateAccount = exports.createAccount = exports.getAccounts = exports.getAccount = void 0;
+exports.deleteParticipant = exports.updateParticipant = exports.createParticipant = exports.checkParticipant = exports.getAllParticipants = exports.getParticipants = exports.getParticipant = exports.deleteTrial = exports.updateTrial = exports.checkTrial = exports.createTrial = exports.getAllTrials = exports.getTrials = exports.getTrial = exports.deleteContest = exports.updateContest = exports.createContest = exports.checkContest = exports.getContests = exports.getContest = exports.deleteAccount = exports.updateAccount = exports.createAccount = exports.getAccounts = exports.getAccount = exports.getAccountByNameOrMail = void 0;
 const db_control_1 = __importDefault(require("../../db/db_control"));
 const contest_class_1 = require("../models/contest.class");
 //Users
+function getAccountByNameOrMail(user, isEmail = false) {
+    return __awaiter(this, void 0, void 0, function* () {
+        try {
+            console.log(user);
+            if (!user.length)
+                return false;
+            const result = yield db_control_1.default.get `SELECT * FROM accounts`; // WHERE ${isEmail ? 'email' : 'name'}=${user}`;
+            console.log((result));
+            return result;
+        }
+        catch (e) {
+            console.log(e);
+            throw e;
+        }
+    });
+}
+exports.getAccountByNameOrMail = getAccountByNameOrMail;
+;
 function getAccount(id) {
     return __awaiter(this, void 0, void 0, function* () {
         if (!id || isNaN(id) || id < 1)

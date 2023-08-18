@@ -7,6 +7,23 @@ import User from '../models/user.class';
 
 
 //Users
+async function getAccountByNameOrMail (user: string, isEmail: boolean = false ) {
+  try
+  { 
+    console.log (user)
+    if (!user.length) return false;
+    db.db
+    const result = await db.get`SELECT * FROM accounts` ; // WHERE ${isEmail ? 'email' : 'name'}=${user}`;
+    console.log ((result));
+    return result;
+  }
+  catch (e) 
+  {
+    console.log (e)
+    throw e;
+  }  
+};
+
 async function getAccount (id?: number) {
     if (!id || isNaN (id) || id < 1) id = 1;
     const result = await db.get`SELECT * FROM accounts WHERE id = ${id}`;
@@ -320,6 +337,7 @@ async function createParticipant (data: Contest)  {
 
 
 export { 
+    getAccountByNameOrMail,
     getAccount, 
     getAccounts, 
     createAccount,
