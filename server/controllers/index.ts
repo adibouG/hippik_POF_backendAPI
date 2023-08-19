@@ -1,20 +1,17 @@
 import db from '../../db/db_control';
 import { Contest, ContestList, ContestTrial } from '../models/contest.class';
 import { Participant } from '../models/participant.class';
-import User from '../models/user.class';
-
-
-
+import {User, UserWithCred} from '../models/user.class';
 
 //Users
 async function getAccountByNameOrMail (user: string, isEmail: boolean = false ) {
   try
   { 
-    console.log (user)
     if (!user.length) return false;
-    db.db
-    const result = await db.get`SELECT * FROM accounts` ; // WHERE ${isEmail ? 'email' : 'name'}=${user}`;
-    console.log ((result));
+    let result;
+    if (isEmail) result = await db.get`SELECT * FROM accounts WHERE email = ${user}` ;
+    else result = await db.get`SELECT * FROM accounts WHERE name = ${user}` ;
+    console.log (result);
     return result;
   }
   catch (e) 
@@ -48,9 +45,9 @@ async function deleteAccount (id?: number) {
 async function updateAccount (data: User) {
     try 
     {
-        let {id, name, createdDate, modifiedDate, status} = data;
+        let {id, name, created, modified, status} = data;
         await db.run`UPDATE contests \
-            SET name=${name}, location=${location}, created=${createdDate}, modified=${modifiedDate}, status=${status} \
+            SET name=${name}, location=${location}, created=${created}, modified=${modified}, status=${status} \
                 WHERE id=${id}`;
     }
     catch (err)
@@ -60,15 +57,33 @@ async function updateAccount (data: User) {
 }
 
 
-async function createAccount (data: User)  {
+async function createAccount (data: UserWithCred)  {
     try 
     {
-        let {id, name, createdDate, modifiedDate, status} = data;
-        if (!id || isNaN (id) || id < 1) 
-        {
-            id = 0;
-            await db.run`INSERT INTO contests(name, location, statdate, enddate, created, modified, status) \
-                VALUES (${name}, ${location}, ${createdDate}, ${modifiedDate}, ${status})`;
+        const {name, email, pwd, salt, created, modified, status} = data;
+        {   
+
+            const createdStamp = created?.valueOf ();
+            const modStamp = modified?.valueOf ();
+            const row = await db.get(`SELECT statusId FROM account_status WHERE status = ${status}`) ;
+            await db.run(`INSERT INTO accounts (name, email, status, created, modified) \
+                            VALUES (${name}, ${email}, ${row.statusId}, ${created}, ${modified}})`) /*, 
+                            {$name: name, $email: email, $created:createdStamp, $modified:modStamp, $status: row.statusId}, 
+                      //db.db.serialize(function(){     
+                //db.run(`BEGIN TRANSACTION`)
+            await   db.run("INSERT INTO accounts (name, email, status, created, modified) \
+                            VALUES ($name, $email, $created, $modified, $status)", 
+                            {$name: name, $email: email, $created:createdStamp, $modified:modStamp, $status: row.statusId}, 
+                            function(err){
+                             if (err) {
+                                 db.run("ROLLBACK TRANSACTION"); 
+                                 throw err;
+                             }
+                             db.run("COMMIT TRANSACTION"); 
+                             return this.lastID;
+                            })  ;
+                            */
+            return await getAccountByNameOrMail (data.email, false);  
         }
         
     }
@@ -78,7 +93,13 @@ async function createAccount (data: User)  {
         
     }
 }
+//AccountStatus
 
+async function getAccountStatus (status?: number | string | null) {
+    if (!status) return  await db.all`SELECT * FROM account_status` ;
+    if (String(status).length && typeof status === 'string') return  await db.get`SELECT * FROM account_status WHERE status = ${status}`;
+    return  await db.get`SELECT * FROM account_status WHERE statusId = ${status}`;
+};
 
 
 //Contests

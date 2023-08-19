@@ -145,3 +145,4 @@ contestRouter.route('/api/contests/:contestId/participants/:id')
     return res.send(data);
 }));
 exports.default = contestRouter;
+//# sourceMappingURL=contests.js.map

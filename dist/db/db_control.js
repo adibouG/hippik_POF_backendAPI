@@ -21,3 +21,4 @@ const envSettings = {
 dotenv_1.default.populate(env, envSettings);
 const db = new sqlite_x_1.default(String(process.env.DB));
 exports.default = db;
+//# sourceMappingURL=db_control.js.map

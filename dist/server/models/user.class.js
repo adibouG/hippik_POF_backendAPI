@@ -1,17 +1,25 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.UserWithCred = exports.User = void 0;
 class User {
-    constructor(id, name, createdBy, status, createdDate, modifiedDate) {
-        if (id)
-            this.id = id;
-        else {
-            this.id = 0;
-            this.name = name || (Date.now()).toString();
-            this.status = status;
-            this.createdDate = createdDate || new Date();
-            this.modifiedDate = modifiedDate || new Date();
-            this.createdBy = createdBy;
-        }
+    constructor({ id, email, role, name, createdBy, status, created, modified }) {
+        this.id = id;
+        this.name = name || email;
+        this.email = email;
+        this.role = role;
+        this.status = status;
+        this.created = created ? new Date(created) : new Date();
+        this.modified = modified ? new Date(modified) : new Date();
+        this.createdBy = createdBy;
     }
 }
-exports.default = User;
+exports.User = User;
+class UserWithCred extends User {
+    constructor(data, pwd, salt) {
+        super(data);
+        this.pwd = pwd || null;
+        this.salt = salt || null;
+    }
+}
+exports.UserWithCred = UserWithCred;
+//# sourceMappingURL=user.class.js.map

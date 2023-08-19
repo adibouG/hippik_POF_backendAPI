@@ -1,9 +1,7 @@
 import express, { NextFunction, Request, Response, Router } from 'express';
-
-
 import * as Controllers from '../controllers' ;
-import User from '../models/user.class';
-
+import {User, UserWithCred} from '../models/user.class';
+import {genrateSaltHashPassword, comparePwd} from '../utils/utils';
 const userRouter: Router = express.Router()
 
 userRouter.route ('/api/users')
@@ -44,68 +42,80 @@ else throw new Error ();
 
 userRouter.route ('/api/login')
 .all (async (req: Request, res: Response, next: NextFunction) => {
-
-console.log (req);
-next();
-/*
-var form = new multiparty.Form();
-//var image;
-var user;
-var pwd;
-var file;
-form.on('error', next );
-form.on('close', next );
-
-// listen on field event for title
-form.on('field', function(name, val){
-  req.form = {} ;
-  req.form[name] = val ;
-});
-
-// listen on part event for image file
-form.on('part', function(part){
-  if (!part.filename) return;
-  if (part.name !== 'image') return part.resume();
-  file = {};
-  file.filename = part.filename;
-  file.size = 0;
   
-  part.on('data', function(buf){
-    file.size += buf.length;
-  });
-});
-
-
-// parse the form
-form.parse(req);
-})
-*/
+//  const t = genrateSaltHashPassword ('test');
+//  console.log (t.passwordHash);
+//  console.log (t.salt);
+//console.log (genrateSaltHashPassword ('test').passwordHash);
+next();
 })
 .post (async (req: Request, res: Response, next: NextFunction) => {
   const {user, pwd} = req.body ;
-  console.log ('**************************') ;
-  if (!user.length) throw new Error ('no valid values') ; 
-  let isEmail: boolean = String (user).includes ('@');  
-  const data = await Controllers.getAccountByNameOrMail (user, isEmail);
-  if (data) {
-    const userObj = new User (data.id, data.name, data.createdBy, data.status, data.createdDate, data.modifiedDate );
-    res.cookie ('user', JSON.stringify (userObj));
-    return res.send (userObj);
-  }
-  else
+  try
   {
-    return res.status (400).end ();
+    if (!user.length) throw new Error ('no valid values') ; 
+    const isEmail: boolean = String (user).includes ('@');  
+    const data = await Controllers.getAccountByNameOrMail (user, isEmail);
+    if (!data) throw new Error ('user not found') ;
+    if (comparePwd (pwd, data.salt, data.pwd)) { 
+      const userObj = new User (data);// .id, , , data.email, data.name, data.createdBy, data.status, createDate, modDate);
+      res.cookie ('user', JSON.stringify (userObj));
+      return res.send (userObj);
+    }
+    else throw new Error ('invalid user/pwd') ;
   }
-})/*
-.put (async (req: Request, res: Response) => {
-  const data = await Controllers.updateAccount (req.body);
-  return res.send (data);
+  catch (e)
+  {
+    return res.status (400).send (e);
+  }
 })
-.delete (async (req: Request, res: Response) => {
-  
-  const {id} = req.params; 
-  const data = await Controllers.deleteAccount (Number (id));
-  return res.send (data);
-});*/
 
+userRouter.route ('/api/user/register')
+.all (async (req: Request, res: Response, next: NextFunction) => {
+
+console.log (req);
+next();
+})
+.post (async (req: Request, res: Response, next: NextFunction) => {
+  const { user, email, pwd, isAdmin } = req.body ;
+  try
+  {
+    if ((!user.length && !email.length) || !pwd.length) throw new Error ('missing mandatory values') ; 
+    const isEmail: boolean = email && String (email).includes ('@');  
+    let isOk = true; // flag to track if user values are good
+    //email is 1st unique chek 
+    if (isEmail) {
+      const data = await Controllers.getAccountByNameOrMail (email, isEmail);
+      if (data) {
+        isOk = false;
+        throw new Error ('email already exist') ;
+      }
+    }  
+    // name is 2nd check
+    let name = user && user.length ? user : email ;
+    const data = await Controllers.getAccountByNameOrMail (name, false);
+    if (data) {
+      isOk = false;
+      throw new Error ('name already exist') ;
+    }
+    
+    if (isOk) {
+      //go for the pwd   
+      const userPwd = genrateSaltHashPassword (pwd); 
+      const userObj = new UserWithCred (data, userPwd.passwordHash, userPwd.salt);
+      const saveUser = await Controllers.createAccount (userObj);
+      if (saveUser) {
+     //     const data = await Controllers.getAccountByNameOrMail (userObj.name, false);
+      }
+      res.cookie ('user', JSON.stringify (saveUser));
+        return res.send (saveUser);
+      
+    }
+    else throw new Error ('invalid user/pwd') ;
+  }
+  catch (e)
+  {
+    return res.status (400).send (e);
+  }
+})
 export default userRouter;

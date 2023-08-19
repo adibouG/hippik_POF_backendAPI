@@ -46,3 +46,4 @@ class Horse {
     }
 }
 exports.Horse = Horse;
+//# sourceMappingURL=participant.class.js.map

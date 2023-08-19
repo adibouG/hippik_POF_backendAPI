@@ -9,3 +9,4 @@ server_1.default.listen(Number(PORT), String(HOST), () => {
     console.log(`[DB]: SQLite Server running, using ${DB} as permanent storage`);
     console.log(`[server]: Server is running at ${SCHEME}://${HOST}:${PORT}`);
 });
+//# sourceMappingURL=index.js.map

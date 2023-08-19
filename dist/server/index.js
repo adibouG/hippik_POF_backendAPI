@@ -8,3 +8,4 @@ const routes_1 = __importDefault(require("./routes"));
 app_1.default.use(routes_1.default.contestRouter);
 app_1.default.use(routes_1.default.userRouter);
 exports.default = app_1.default;
+//# sourceMappingURL=index.js.map

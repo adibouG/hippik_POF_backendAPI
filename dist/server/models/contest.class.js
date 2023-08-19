@@ -46,3 +46,4 @@ class ContestTrial {
     }
 }
 exports.ContestTrial = ContestTrial;
+//# sourceMappingURL=contest.class.js.map

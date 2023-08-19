@@ -19,11 +19,14 @@ const contest_class_1 = require("../models/contest.class");
 function getAccountByNameOrMail(user, isEmail = false) {
     return __awaiter(this, void 0, void 0, function* () {
         try {
-            console.log(user);
             if (!user.length)
                 return false;
-            const result = yield db_control_1.default.get `SELECT * FROM accounts`; // WHERE ${isEmail ? 'email' : 'name'}=${user}`;
-            console.log((result));
+            let result;
+            if (isEmail)
+                result = yield db_control_1.default.get `SELECT * FROM accounts WHERE email = ${user}`;
+            else
+                result = yield db_control_1.default.get `SELECT * FROM accounts WHERE name = ${user}`;
+            console.log(result);
             return result;
         }
         catch (e) {
@@ -68,9 +71,9 @@ exports.deleteAccount = deleteAccount;
 function updateAccount(data) {
     return __awaiter(this, void 0, void 0, function* () {
         try {
-            let { id, name, createdDate, modifiedDate, status } = data;
+            let { id, name, created, modified, status } = data;
             yield db_control_1.default.run `UPDATE contests \
-            SET name=${name}, location=${location}, created=${createdDate}, modified=${modifiedDate}, status=${status} \
+            SET name=${name}, location=${location}, created=${created}, modified=${modified}, status=${status} \
                 WHERE id=${id}`;
         }
         catch (err) {
@@ -82,11 +85,29 @@ exports.updateAccount = updateAccount;
 function createAccount(data) {
     return __awaiter(this, void 0, void 0, function* () {
         try {
-            let { id, name, createdDate, modifiedDate, status } = data;
-            if (!id || isNaN(id) || id < 1) {
-                id = 0;
-                yield db_control_1.default.run `INSERT INTO contests(name, location, statdate, enddate, created, modified, status) \
-                VALUES (${name}, ${location}, ${createdDate}, ${modifiedDate}, ${status})`;
+            const { name, email, pwd, salt, created, modified, status } = data;
+            {
+                const createdStamp = created === null || created === void 0 ? void 0 : created.valueOf();
+                const modStamp = modified === null || modified === void 0 ? void 0 : modified.valueOf();
+                const row = yield db_control_1.default.get(`SELECT statusId FROM account_status WHERE status = ${status}`);
+                yield db_control_1.default.run(`INSERT INTO accounts (name, email, status, created, modified) \
+                            VALUES (${name}, ${email}, ${row.statusId}, ${created}, ${modified}})`); /*,
+                {$name: name, $email: email, $created:createdStamp, $modified:modStamp, $status: row.statusId},
+          //db.db.serialize(function(){
+    //db.run(`BEGIN TRANSACTION`)
+await   db.run("INSERT INTO accounts (name, email, status, created, modified) \
+                VALUES ($name, $email, $created, $modified, $status)",
+                {$name: name, $email: email, $created:createdStamp, $modified:modStamp, $status: row.statusId},
+                function(err){
+                 if (err) {
+                     db.run("ROLLBACK TRANSACTION");
+                     throw err;
+                 }
+                 db.run("COMMIT TRANSACTION");
+                 return this.lastID;
+                })  ;
+                */
+                return yield getAccountByNameOrMail(data.email, false);
             }
         }
         catch (err) {
@@ -95,6 +116,17 @@ function createAccount(data) {
     });
 }
 exports.createAccount = createAccount;
+//AccountStatus
+function getAccountStatus(status) {
+    return __awaiter(this, void 0, void 0, function* () {
+        if (!status)
+            return yield db_control_1.default.all `SELECT * FROM account_status`;
+        if (String(status).length && typeof status === 'string')
+            return yield db_control_1.default.get `SELECT * FROM account_status WHERE status = ${status}`;
+        return yield db_control_1.default.get `SELECT * FROM account_status WHERE statusId = ${status}`;
+    });
+}
+;
 //Contests
 function getContests() {
     return __awaiter(this, void 0, void 0, function* () {
@@ -369,3 +401,4 @@ function createParticipant(data) {
     });
 }
 exports.createParticipant = createParticipant;
+//# sourceMappingURL=index.js.map

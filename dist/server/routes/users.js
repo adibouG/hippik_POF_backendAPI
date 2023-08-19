@@ -37,7 +37,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
 const Controllers = __importStar(require("../controllers"));
-const user_class_1 = __importDefault(require("../models/user.class"));
+const user_class_1 = require("../models/user.class");
+const utils_1 = require("../utils/utils");
 const userRouter = express_1.default.Router();
 userRouter.route('/api/users')
     .get((req, res) => __awaiter(void 0, void 0, void 0, function* () {
@@ -74,66 +75,77 @@ userRouter.route('/api/users/:id')
 }));
 userRouter.route('/api/login')
     .all((req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
-    console.log(req);
+    //  const t = genrateSaltHashPassword ('test');
+    //  console.log (t.passwordHash);
+    //  console.log (t.salt);
+    //console.log (genrateSaltHashPassword ('test').passwordHash);
     next();
-    /*
-    var form = new multiparty.Form();
-    //var image;
-    var user;
-    var pwd;
-    var file;
-    form.on('error', next );
-    form.on('close', next );
-    
-    // listen on field event for title
-    form.on('field', function(name, val){
-      req.form = {} ;
-      req.form[name] = val ;
-    });
-    
-    // listen on part event for image file
-    form.on('part', function(part){
-      if (!part.filename) return;
-      if (part.name !== 'image') return part.resume();
-      file = {};
-      file.filename = part.filename;
-      file.size = 0;
-      
-      part.on('data', function(buf){
-        file.size += buf.length;
-      });
-    });
-    
-    
-    // parse the form
-    form.parse(req);
-    })
-    */
 }))
     .post((req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
     const { user, pwd } = req.body;
-    console.log('**************************');
-    if (!user.length)
-        throw new Error('no valid values');
-    let isEmail = String(user).includes('@');
-    const data = yield Controllers.getAccountByNameOrMail(user, isEmail);
-    if (data) {
-        const userObj = new user_class_1.default(data.id, data.name, data.createdBy, data.status, data.createdDate, data.modifiedDate);
-        res.cookie('user', JSON.stringify(userObj));
-        return res.send(userObj);
+    try {
+        if (!user.length)
+            throw new Error('no valid values');
+        const isEmail = String(user).includes('@');
+        const data = yield Controllers.getAccountByNameOrMail(user, isEmail);
+        if (!data)
+            throw new Error('user not found');
+        if ((0, utils_1.comparePwd)(pwd, data.salt, data.pwd)) {
+            const userObj = new user_class_1.User(data); // .id, , , data.email, data.name, data.createdBy, data.status, createDate, modDate);
+            res.cookie('user', JSON.stringify(userObj));
+            return res.send(userObj);
+        }
+        else
+            throw new Error('invalid user/pwd');
     }
-    else {
-        return res.status(400).end();
+    catch (e) {
+        return res.status(400).send(e);
     }
-})); /*
-.put (async (req: Request, res: Response) => {
-  const data = await Controllers.updateAccount (req.body);
-  return res.send (data);
-})
-.delete (async (req: Request, res: Response) => {
-  
-  const {id} = req.params;
-  const data = await Controllers.deleteAccount (Number (id));
-  return res.send (data);
-});*/
+}));
+userRouter.route('/api/user/register')
+    .all((req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+    console.log(req);
+    next();
+}))
+    .post((req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+    const { user, email, pwd, isAdmin } = req.body;
+    try {
+        if ((!user.length && !email.length) || !pwd.length)
+            throw new Error('missing mandatory values');
+        const isEmail = email && String(email).includes('@');
+        let isOk = true; // flag to track if user values are good
+        //email is 1st unique chek 
+        if (isEmail) {
+            const data = yield Controllers.getAccountByNameOrMail(email, isEmail);
+            if (data) {
+                isOk = false;
+                throw new Error('email already exist');
+            }
+        }
+        // name is 2nd check
+        let name = user && user.length ? user : email;
+        const data = yield Controllers.getAccountByNameOrMail(name, false);
+        if (data) {
+            isOk = false;
+            throw new Error('name already exist');
+        }
+        if (isOk) {
+            //go for the pwd   
+            const userPwd = (0, utils_1.genrateSaltHashPassword)(pwd);
+            const userObj = new user_class_1.UserWithCred(data, userPwd.passwordHash, userPwd.salt);
+            const saveUser = yield Controllers.createAccount(userObj);
+            if (saveUser) {
+                //     const data = await Controllers.getAccountByNameOrMail (userObj.name, false);
+            }
+            res.cookie('user', JSON.stringify(saveUser));
+            return res.send(saveUser);
+        }
+        else
+            throw new Error('invalid user/pwd');
+    }
+    catch (e) {
+        return res.status(400).send(e);
+    }
+}));
 exports.default = userRouter;
+//# sourceMappingURL=users.js.map
