@@ -44,10 +44,6 @@ userRouter.route('/api/users')
     .get((req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const data = yield Controllers.getAccounts();
     return res.send(data);
-}))
-    .post((req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    const data = yield Controllers.createAccount(req.body);
-    return res.send(data);
 }));
 userRouter.route('/api/users/:id')
     .all((req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
@@ -102,7 +98,7 @@ userRouter.route('/api/login')
         return res.status(400).send(e);
     }
 }));
-userRouter.route('/api/user/register')
+userRouter.route('/api/users/register')
     .all((req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
     console.log(req);
     next();
@@ -131,19 +127,20 @@ userRouter.route('/api/user/register')
         }
         if (isOk) {
             //go for the pwd   
-            const userPwd = (0, utils_1.genrateSaltHashPassword)(pwd);
+            const userPwd = (0, utils_1.genrateSaltHashPassword)(pwd); //TODO : move in controller
             const userObj = new user_class_1.UserWithCred(data, userPwd.passwordHash, userPwd.salt);
             const saveUser = yield Controllers.createAccount(userObj);
             if (saveUser) {
-                //     const data = await Controllers.getAccountByNameOrMail (userObj.name, false);
+                const data = yield Controllers.getAccountByNameOrMail(userObj.name, false);
+                return res.send(saveUser);
             }
-            res.cookie('user', JSON.stringify(saveUser));
-            return res.send(saveUser);
+            return res.status(500).send('unknow issue while registering the account');
         }
         else
             throw new Error('invalid user/pwd');
     }
     catch (e) {
+        console.log(e);
         return res.status(400).send(e);
     }
 }));

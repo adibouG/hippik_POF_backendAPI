@@ -2,10 +2,10 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.UserWithCred = exports.User = void 0;
 class User {
-    constructor({ id, email, role, name, createdBy, status, created, modified }) {
+    constructor({ id, email, role, name = "", createdBy, status, created, modified }) {
         this.id = id;
-        this.name = name || email;
         this.email = email;
+        this.name = name.length ? name : email;
         this.role = role;
         this.status = status;
         this.created = created ? new Date(created) : new Date();
@@ -17,8 +17,8 @@ exports.User = User;
 class UserWithCred extends User {
     constructor(data, pwd, salt) {
         super(data);
-        this.pwd = pwd || null;
-        this.salt = salt || null;
+        this.pwd = pwd;
+        this.salt = salt;
     }
 }
 exports.UserWithCred = UserWithCred;

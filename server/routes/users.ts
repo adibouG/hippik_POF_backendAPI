@@ -9,10 +9,6 @@ userRouter.route ('/api/users')
   const data = await Controllers.getAccounts ()
   return res.send (data);
 })
-.post (async (req: Request, res: Response) => {
-  const data = await Controllers.createAccount (req.body);
-  return res.send (data);
-});
 
 
 userRouter.route ('/api/users/:id')
@@ -70,7 +66,7 @@ next();
   }
 })
 
-userRouter.route ('/api/user/register')
+userRouter.route ('/api/users/register')
 .all (async (req: Request, res: Response, next: NextFunction) => {
 
 console.log (req);
@@ -101,20 +97,21 @@ next();
     
     if (isOk) {
       //go for the pwd   
-      const userPwd = genrateSaltHashPassword (pwd); 
+      const userPwd = genrateSaltHashPassword (pwd);  //TODO : move in controller
       const userObj = new UserWithCred (data, userPwd.passwordHash, userPwd.salt);
       const saveUser = await Controllers.createAccount (userObj);
       if (saveUser) {
-     //     const data = await Controllers.getAccountByNameOrMail (userObj.name, false);
-      }
-      res.cookie ('user', JSON.stringify (saveUser));
+        const data = await Controllers.getAccountByNameOrMail (userObj.name, false);
         return res.send (saveUser);
-      
+      }
+
+      return res.status (500).send ('unknow issue while registering the account');
     }
     else throw new Error ('invalid user/pwd') ;
   }
   catch (e)
   {
+    console.log (e);
     return res.status (400).send (e);
   }
 })

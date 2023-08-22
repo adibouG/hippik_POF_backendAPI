@@ -9,8 +9,8 @@ async function getAccountByNameOrMail (user: string, isEmail: boolean = false ) 
   { 
     if (!user.length) return false;
     let result;
-    if (isEmail) result = await db.get`SELECT * FROM accounts WHERE email = ${user}` ;
-    else result = await db.get`SELECT * FROM accounts WHERE name = ${user}` ;
+    if (isEmail) result = await db.get`SELECT accounts.*, account_status.status FROM accounts LEFT JOIN account_status ON accounts.status = account_status.id WHERE email = ${user}` ;
+    else result = await db.get`SELECT accounts.*, account_status.status FROM accounts LEFT JOIN account_status ON accounts.status = account_status.id WHERE name = ${user}` ;          
     console.log (result);
     return result;
   }
@@ -29,7 +29,7 @@ async function getAccount (id?: number) {
 };
 
 async function getAccounts () { 
-    const result = await db.all`SELECT * FROM accounts`;
+    const result = await db.all`SELECT * FROM accounts `;
     console.log (JSON.stringify(result));
     return result;
 };
@@ -62,12 +62,15 @@ async function createAccount (data: UserWithCred)  {
     {
         const {name, email, pwd, salt, created, modified, status} = data;
         {   
-
-            const createdStamp = created?.valueOf ();
-            const modStamp = modified?.valueOf ();
+            const createdStamp = created?.valueOf () || Date.now ();
+            const modStamp = modified?.valueOf () || Date.now ();
             const row = await db.get(`SELECT statusId FROM account_status WHERE status = ${status}`) ;
             await db.run(`INSERT INTO accounts (name, email, status, created, modified) \
-                            VALUES (${name}, ${email}, ${row.statusId}, ${created}, ${modified}})`) /*, 
+                            VALUES (${name}, ${email}, ${row.id}, ${createdStamp}, ${modStamp})` )
+            const newUser = await getAccountByNameOrMail (name, false);  
+            if (!newUser.id) throw new Error (`Could not create ${name} - ${email} user account`) ;
+            return newUser;
+        }                 /*, 
                             {$name: name, $email: email, $created:createdStamp, $modified:modStamp, $status: row.statusId}, 
                       //db.db.serialize(function(){     
                 //db.run(`BEGIN TRANSACTION`)
@@ -83,8 +86,7 @@ async function createAccount (data: UserWithCred)  {
                              return this.lastID;
                             })  ;
                             */
-            return await getAccountByNameOrMail (data.email, false);  
-        }
+        
         
     }
     catch (err)
@@ -97,7 +99,7 @@ async function createAccount (data: UserWithCred)  {
 
 async function getAccountStatus (status?: number | string | null) {
     if (!status) return  await db.all`SELECT * FROM account_status` ;
-    if (String(status).length && typeof status === 'string') return  await db.get`SELECT * FROM account_status WHERE status = ${status}`;
+    if (String(status).length > 1 && typeof status === 'string') return  await db.get`SELECT * FROM account_status WHERE status = ${status}`;
     return  await db.get`SELECT * FROM account_status WHERE statusId = ${status}`;
 };
 

@@ -23,9 +23,9 @@ function getAccountByNameOrMail(user, isEmail = false) {
                 return false;
             let result;
             if (isEmail)
-                result = yield db_control_1.default.get `SELECT * FROM accounts WHERE email = ${user}`;
+                result = yield db_control_1.default.get `SELECT accounts.*, account_status.status FROM accounts LEFT JOIN account_status ON accounts.status = account_status.id WHERE email = ${user}`;
             else
-                result = yield db_control_1.default.get `SELECT * FROM accounts WHERE name = ${user}`;
+                result = yield db_control_1.default.get `SELECT accounts.*, account_status.status FROM accounts LEFT JOIN account_status ON accounts.status = account_status.id WHERE name = ${user}`;
             console.log(result);
             return result;
         }
@@ -50,7 +50,7 @@ exports.getAccount = getAccount;
 ;
 function getAccounts() {
     return __awaiter(this, void 0, void 0, function* () {
-        const result = yield db_control_1.default.all `SELECT * FROM accounts`;
+        const result = yield db_control_1.default.all `SELECT * FROM accounts `;
         console.log(JSON.stringify(result));
         return result;
     });
@@ -87,28 +87,31 @@ function createAccount(data) {
         try {
             const { name, email, pwd, salt, created, modified, status } = data;
             {
-                const createdStamp = created === null || created === void 0 ? void 0 : created.valueOf();
-                const modStamp = modified === null || modified === void 0 ? void 0 : modified.valueOf();
+                const createdStamp = (created === null || created === void 0 ? void 0 : created.valueOf()) || Date.now();
+                const modStamp = (modified === null || modified === void 0 ? void 0 : modified.valueOf()) || Date.now();
                 const row = yield db_control_1.default.get(`SELECT statusId FROM account_status WHERE status = ${status}`);
                 yield db_control_1.default.run(`INSERT INTO accounts (name, email, status, created, modified) \
-                            VALUES (${name}, ${email}, ${row.statusId}, ${created}, ${modified}})`); /*,
-                {$name: name, $email: email, $created:createdStamp, $modified:modStamp, $status: row.statusId},
-          //db.db.serialize(function(){
-    //db.run(`BEGIN TRANSACTION`)
-await   db.run("INSERT INTO accounts (name, email, status, created, modified) \
-                VALUES ($name, $email, $created, $modified, $status)",
-                {$name: name, $email: email, $created:createdStamp, $modified:modStamp, $status: row.statusId},
-                function(err){
-                 if (err) {
-                     db.run("ROLLBACK TRANSACTION");
-                     throw err;
-                 }
-                 db.run("COMMIT TRANSACTION");
-                 return this.lastID;
-                })  ;
-                */
-                return yield getAccountByNameOrMail(data.email, false);
-            }
+                            VALUES (${name}, ${email}, ${row.id}, ${createdStamp}, ${modStamp})`);
+                const newUser = yield getAccountByNameOrMail(name, false);
+                if (!newUser.id)
+                    throw new Error(`Could not create ${name} - ${email} user account`);
+                return newUser;
+            } /*,
+                                {$name: name, $email: email, $created:createdStamp, $modified:modStamp, $status: row.statusId},
+                          //db.db.serialize(function(){
+                    //db.run(`BEGIN TRANSACTION`)
+                await   db.run("INSERT INTO accounts (name, email, status, created, modified) \
+                                VALUES ($name, $email, $created, $modified, $status)",
+                                {$name: name, $email: email, $created:createdStamp, $modified:modStamp, $status: row.statusId},
+                                function(err){
+                                 if (err) {
+                                     db.run("ROLLBACK TRANSACTION");
+                                     throw err;
+                                 }
+                                 db.run("COMMIT TRANSACTION");
+                                 return this.lastID;
+                                })  ;
+                                */
         }
         catch (err) {
             throw err;
@@ -121,7 +124,7 @@ function getAccountStatus(status) {
     return __awaiter(this, void 0, void 0, function* () {
         if (!status)
             return yield db_control_1.default.all `SELECT * FROM account_status`;
-        if (String(status).length && typeof status === 'string')
+        if (String(status).length > 1 && typeof status === 'string')
             return yield db_control_1.default.get `SELECT * FROM account_status WHERE status = ${status}`;
         return yield db_control_1.default.get `SELECT * FROM account_status WHERE statusId = ${status}`;
     });

@@ -1,19 +1,19 @@
 export class User {
 
     id: number; 
-    name: string | null; 
     email: string ; 
+    name: string ; 
     status?: string; 
     role?: string; 
     created?: Date | number;
     modified?: Date | number;
     createdBy?: number;
     
-    constructor ({id, email, role, name, createdBy, status, created, modified }: User )
+    constructor ({ id, email, role, name = "", createdBy, status, created, modified }: User )
     {
         this.id = id;
-        this.name = name || email; 
         this.email = email ;
+        this.name = name.length ? name : email; 
         this.role = role;
         this.status = status;
         this.created = created ? new Date (created) : new Date () ;
@@ -23,15 +23,16 @@ export class User {
 }
 
 export class UserWithCred extends User {
-
-    pwd?: string | null;
-    salt?: string | null;
+   
+    pwd: string ;
+    salt: string ;
 
     constructor (data: User , pwd:string, salt:string ) 
     {
         super(data);
-        this.pwd = pwd || null;
-        this.salt = salt || null;
+      
+        this.pwd = pwd ;
+        this.salt = salt ;
     }
 }
 
