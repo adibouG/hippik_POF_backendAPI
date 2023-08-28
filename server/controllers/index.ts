@@ -18,12 +18,12 @@ async function getAccountByNameOrMail (user: string, isEmail: boolean = false ) 
   {
     console.log (e)
     throw e;
-  }  
+  }
 };
 
 async function getAccount (id?: number) {
     if (!id || isNaN (id) || id < 1) id = 1;
-    const result = await db.get`SELECT * FROM accounts WHERE id = ${id}`;
+    const result = await db.get`SELECT accounts.*, account_status.status FROM accounts LEFT JOIN account_status ON accounts.status = account_status.id WHERE id = ${id}`;
     console.log (JSON.stringify(result));
     return result;
 };
@@ -65,8 +65,8 @@ async function createAccount (data: UserWithCred)  {
             const createdStamp = created?.valueOf () || Date.now ();
             const modStamp = modified?.valueOf () || Date.now ();
             const row = await db.get(`SELECT statusId FROM account_status WHERE status = ${status}`) ;
-            await db.run(`INSERT INTO accounts (name, email, status, created, modified) \
-                            VALUES (${name}, ${email}, ${row.id}, ${createdStamp}, ${modStamp})` )
+            await db.run(`INSERT INTO accounts (name, email, status, created, modified, pwd, salt) \
+                            VALUES (${name}, ${email}, ${row.id}, ${createdStamp}, ${modStamp}, ${pwd}, ${salt})` )
             const newUser = await getAccountByNameOrMail (name, false);  
             if (!newUser.id) throw new Error (`Could not create ${name} - ${email} user account`) ;
             return newUser;
@@ -126,6 +126,8 @@ async function deleteContest (id?: number) {
         WHERE id = ${id}`;
 };
 
+
+
 async function checkContest (data: Contest): Promise<any>  {
     const { name , startDate, location } = data;
     if (name?.length)
@@ -166,14 +168,11 @@ async function updateContest (data: Contest) {
 async function createContest (data: Contest)  {
     try 
     {
-        let {id, name, location, startDate, endDate, createdDate, modifiedDate, status} = data;
-        if (!id || isNaN (id) || id < 1) 
-        {
-            id = 0;
-            await db.run`INSERT INTO contests(name, location, statdate, enddate, created, modified, status) \
+        let {name, location, startDate, endDate, createdDate, modifiedDate, status} = data;
+      
+        const row = await db.run`INSERT INTO contests(name, location, statdate, enddate, created, modified, status) \
                 VALUES (${name}, ${location}, ${startDate}, ${endDate}, ${createdDate}, ${modifiedDate}, ${status})`;
-        }
-        
+        return row;        
     }
     catch (err)
     { 
@@ -359,13 +358,57 @@ async function createParticipant (data: Contest)  {
 }
 
 
+async function addImage (userId: number, file: string, type: number): Promise<any>  {
+    
+    
+    const result = await db.run`INSERT INTO images (account, file, type) \
+                    VALUES (${userId}, ${file}, (SELECT id FROM image_types WHERE type=${type}))`;
+    console.log (JSON.stringify(result));
+    return result.lastID;
+}
+
+
+async function getImagesByTypeOrId (type?: string, id?: number) : Promise<any>  {
+    let results ;    
+    if (type && !id) 
+    {   
+        results = await db.getAll `SELECT images.id, images.account, images.file, image_types.type \
+        FROM images LEFT JOIN image_types ON images.type = image_types.id \
+        WHERE image_types.type = ${type}`
+ 
+    }
+    else if (id && !type)
+    {
+        results = await db.get `SELECT images.id, images.account, images.file, image_types.type \
+        FROM images LEFT JOIN image_types ON  images.type = image_types.id \
+        WHERE images.id = ${id}`;
+    }
+    else if (type && id)
+    {
+        results = await db.getAll `SELECT images.id, images.file, image_types.type \
+        FROM images LEFT JOIN image_types ON  images.type =  image_types.id \
+        WHERE image_types = ${type} AND images.account = ${id}` ;
+        
+    }
+    else
+    {
+        results = await db.getAll `SELECT images.id, images.file, image_types.type \
+        FROM images LEFT JOIN image_types ON images.type = image_types.id ` ;
+    }
+ }
+
+
+
 export { 
+    addImage,
+    getImagesByTypeOrId,
     getAccountByNameOrMail,
     getAccount, 
     getAccounts, 
     createAccount,
     updateAccount,
     deleteAccount,
+    getAccountStatus,
     getContest, 
     getContests, 
     checkContest,

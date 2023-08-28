@@ -8,8 +8,10 @@ export class User {
     created?: Date | number;
     modified?: Date | number;
     createdBy?: number;
+    pwd?: string | null ;
+    salt?: string | null ;
     
-    constructor ({ id, email, role, name = "", createdBy, status, created, modified }: User )
+    constructor ({ id, email, role, name = "", createdBy, status, created, modified, pwd = null, salt = null }: User )
     {
         this.id = id;
         this.email = email ;
@@ -19,6 +21,9 @@ export class User {
         this.created = created ? new Date (created) : new Date () ;
         this.modified = modified ?  new Date (modified) : new Date ();
         this.createdBy = createdBy;
+        if (pwd) this.pwd = pwd ;
+        if (salt) this.salt = salt ;
+
     }
 }
 

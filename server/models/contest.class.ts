@@ -1,25 +1,38 @@
+class ImageFile {
+    file: string;
+    type: string;
+    id?:number;
+    account?: number;
+    constructor (file: string, type: string, id?:number, accountId?: number)
+    {
+        this.file = file;
+        this.type = type;
+        this.id  = id;
+        this.account = accountId;
+    }
+}
+
+
 class Contest {
 
     id?: number; 
-    name?: string; 
-    desc?: string; 
-    location?: string; 
+    name: string; 
     startDate?: Date; 
+    location: string; 
+    userId: number;
+    desc?: string; 
     endDate?: Date; 
     status?: string; 
     createdDate?: Date;
     modifiedDate?: Date;
-    createdBy?: number;
+    images?:Array<ImageFile|string>
+    
 
-    constructor (
-        id?: number, name?: string, createdBy?: number, desc?: string, 
-            location?: string, startDate?: Date, endDate?: Date, status?: string,
-                createdDate?: Date, modifiedDate?: Date
-    )
+    constructor ({ id, name, userId, location, desc,
+        startDate, endDate, status, images,
+        createdDate, modifiedDate }: Contest)
     {
-        if (id) this.id = id;
-        else {
-            this.id = 0;
+            this.id = id;
             this.name = name || (Date.now ()).toString () ;
             this.desc = desc;
             this.location = location ;
@@ -28,8 +41,19 @@ class Contest {
             this.status = status;
             this.createdDate = createdDate || new Date () ;
             this.modifiedDate = modifiedDate || new Date ();
-            this.createdBy = createdBy;
-        }
+            this.userId = userId;
+            if (images && images.length) 
+            {
+                images.map ((el => {
+                    if (typeof el === 'string') 
+                    {
+                        new ImageFile (el, 'contest',undefined ,this.userId);
+                    }
+                }))
+            }
+        
+            this.images = images || [];
+        
     }
 }
 

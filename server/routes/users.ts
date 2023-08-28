@@ -4,9 +4,25 @@ import {User, UserWithCred} from '../models/user.class';
 import {genrateSaltHashPassword, comparePwd} from '../utils/utils';
 const userRouter: Router = express.Router()
 
+const checkAndRemovePwdData = ( account: User/*, i:number, source: User[]*/ ) => {
+  for (const k in account)
+  {
+    if (k === 'pwd' || k === 'salt') 
+    {
+      let ac = account as User; 
+      delete account.pwd;
+      delete account.salt;
+      return account;
+    }
+  }
+}
+
 userRouter.route ('/api/users')
 .get (async (req: Request, res: Response) => {
-  const data = await Controllers.getAccounts ()
+  const data: User[] = await Controllers.getAccounts ();
+  console.log (data)
+  data.map((el: User, id: number, mod) => checkAndRemovePwdData (el));
+  console.log (data)
   return res.send (data);
 })
 
@@ -35,7 +51,85 @@ else throw new Error ();
   return res.send (data);
 });
 
+interface Session {
+  userid : number,
+  ip: string,
+  sessionid: string,
+  startDateTime: Date | number,
+  endDateTime?:  Date | number | null
+}
 
+class UserSession implements Session {
+  userid : number;
+  ip: string;
+  sessionid: string;
+  startDateTime: Date | number;
+  endDateTime?:  Date | number | null;
+
+  constructor (userid: number, ip:string) {
+    this.userid = userid;
+    this.ip = ip;
+    this.startDateTime = Date.now ();
+    this.sessionid = userid + '.' + this.startDateTime ;
+    this.endDateTime = null;
+  }
+    
+}
+interface SessionList {
+  [id: number]: UserSession ;
+}
+const sessions: SessionList = {} ;
+
+const addSession = (sessionObj: UserSession, sessionListObj: SessionList) => { 
+  
+  if (!sessionListObj[sessionObj.userid] || sessionListObj[sessionObj.userid].endDateTime) sessionListObj[sessionObj.userid] = sessionObj ;
+  else throw new Error ('sessiom exist')
+
+}
+const deleteSession = (userid: number, sessionListObj: SessionList) => { 
+  
+  if (sessionListObj[userid] && !sessionListObj[userid].endDateTime) sessionListObj[userid].endDateTime = Date.now () ;
+  else return false;
+
+}
+
+userRouter.route ('/api/logout')
+.all (async (req: Request, res: Response, next: NextFunction) => {
+  
+//session check 
+//user check
+next();
+})
+.post (async (req: Request, res: Response, next: NextFunction) => {
+  
+  try
+  { 
+    const userdata = req.body ;
+    const head = req.get('authorization');
+    let userId;
+    let sessionId; 
+    if (head) { 
+      const cred = head.split (' ').at (1) as string ;
+      const auth = btoa (cred);
+      userId = auth.split(':').at (0);
+      sessionId = auth.split(':').at (1);
+    } 
+    const id = userdata.id;
+ //   if (userId !=  id)   console.log (`userId ${userId} !=  id ${id}`)
+    if (!deleteSession (id, sessions)) deleteSession (Number (userId), sessions)
+    
+    res.set ('Clear-Site-Data', '"cache", "cookies", "storage", "executionContexts"');
+    res.set ('Refresh', '0');
+    res.redirect ('/');
+    return res.end ();
+  }
+  catch (e)
+  {
+    res.set ('Clear-Site-Data', '"cache", "cookies", "storage", "executionContexts"');
+    res.set ('Refresh', '1');
+    return res.status (400).send (e);
+  }
+})
 userRouter.route ('/api/login')
 .all (async (req: Request, res: Response, next: NextFunction) => {
   
@@ -55,7 +149,11 @@ next();
     if (!data) throw new Error ('user not found') ;
     if (comparePwd (pwd, data.salt, data.pwd)) { 
       const userObj = new User (data);// .id, , , data.email, data.name, data.createdBy, data.status, createDate, modDate);
-      res.cookie ('user', JSON.stringify (userObj));
+      checkAndRemovePwdData (userObj);
+      const sessionData = new UserSession (userObj.id, req.ip);
+      sessions[sessionData.userid] = sessionData;
+      res.cookie ('user', userObj);
+      res.cookie ('sessionid', btoa (sessionData.sessionid));
       return res.send (userObj);
     }
     else throw new Error ('invalid user/pwd') ;
@@ -102,7 +200,8 @@ next();
       const saveUser = await Controllers.createAccount (userObj);
       if (saveUser) {
         const data = await Controllers.getAccountByNameOrMail (userObj.name, false);
-        return res.send (saveUser);
+        const newAccount = new User (data);
+        return res.send (newAccount);
       }
 
       return res.status (500).send ('unknow issue while registering the account');

@@ -12,7 +12,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deleteParticipant = exports.updateParticipant = exports.createParticipant = exports.checkParticipant = exports.getAllParticipants = exports.getParticipants = exports.getParticipant = exports.deleteTrial = exports.updateTrial = exports.checkTrial = exports.createTrial = exports.getAllTrials = exports.getTrials = exports.getTrial = exports.deleteContest = exports.updateContest = exports.createContest = exports.checkContest = exports.getContests = exports.getContest = exports.deleteAccount = exports.updateAccount = exports.createAccount = exports.getAccounts = exports.getAccount = exports.getAccountByNameOrMail = void 0;
+exports.deleteParticipant = exports.updateParticipant = exports.createParticipant = exports.checkParticipant = exports.getAllParticipants = exports.getParticipants = exports.getParticipant = exports.deleteTrial = exports.updateTrial = exports.checkTrial = exports.createTrial = exports.getAllTrials = exports.getTrials = exports.getTrial = exports.deleteContest = exports.updateContest = exports.createContest = exports.checkContest = exports.getContests = exports.getContest = exports.getAccountStatus = exports.deleteAccount = exports.updateAccount = exports.createAccount = exports.getAccounts = exports.getAccount = exports.getAccountByNameOrMail = exports.getImagesByTypeOrId = exports.addImage = void 0;
 const db_control_1 = __importDefault(require("../../db/db_control"));
 const contest_class_1 = require("../models/contest.class");
 //Users
@@ -41,7 +41,7 @@ function getAccount(id) {
     return __awaiter(this, void 0, void 0, function* () {
         if (!id || isNaN(id) || id < 1)
             id = 1;
-        const result = yield db_control_1.default.get `SELECT * FROM accounts WHERE id = ${id}`;
+        const result = yield db_control_1.default.get `SELECT accounts.*, account_status.status FROM accounts LEFT JOIN account_status ON accounts.status = account_status.id WHERE id = ${id}`;
         console.log(JSON.stringify(result));
         return result;
     });
@@ -90,8 +90,8 @@ function createAccount(data) {
                 const createdStamp = (created === null || created === void 0 ? void 0 : created.valueOf()) || Date.now();
                 const modStamp = (modified === null || modified === void 0 ? void 0 : modified.valueOf()) || Date.now();
                 const row = yield db_control_1.default.get(`SELECT statusId FROM account_status WHERE status = ${status}`);
-                yield db_control_1.default.run(`INSERT INTO accounts (name, email, status, created, modified) \
-                            VALUES (${name}, ${email}, ${row.id}, ${createdStamp}, ${modStamp})`);
+                yield db_control_1.default.run(`INSERT INTO accounts (name, email, status, created, modified, pwd, salt) \
+                            VALUES (${name}, ${email}, ${row.id}, ${createdStamp}, ${modStamp}, ${pwd}, ${salt})`);
                 const newUser = yield getAccountByNameOrMail(name, false);
                 if (!newUser.id)
                     throw new Error(`Could not create ${name} - ${email} user account`);
@@ -129,6 +129,7 @@ function getAccountStatus(status) {
         return yield db_control_1.default.get `SELECT * FROM account_status WHERE statusId = ${status}`;
     });
 }
+exports.getAccountStatus = getAccountStatus;
 ;
 //Contests
 function getContests() {
@@ -203,12 +204,10 @@ exports.updateContest = updateContest;
 function createContest(data) {
     return __awaiter(this, void 0, void 0, function* () {
         try {
-            let { id, name, location, startDate, endDate, createdDate, modifiedDate, status } = data;
-            if (!id || isNaN(id) || id < 1) {
-                id = 0;
-                yield db_control_1.default.run `INSERT INTO contests(name, location, statdate, enddate, created, modified, status) \
+            let { name, location, startDate, endDate, createdDate, modifiedDate, status } = data;
+            const row = yield db_control_1.default.run `INSERT INTO contests(name, location, statdate, enddate, created, modified, status) \
                 VALUES (${name}, ${location}, ${startDate}, ${endDate}, ${createdDate}, ${modifiedDate}, ${status})`;
-            }
+            return row;
         }
         catch (err) {
             throw err;
@@ -404,4 +403,38 @@ function createParticipant(data) {
     });
 }
 exports.createParticipant = createParticipant;
+function addImage(userId, file, type) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const result = yield db_control_1.default.run `INSERT INTO images (account, file, type) \
+                    VALUES (${userId}, ${file}, (SELECT id FROM image_types WHERE type=${type}))`;
+        console.log(JSON.stringify(result));
+        return result.lastID;
+    });
+}
+exports.addImage = addImage;
+function getImagesByTypeOrId(type, id) {
+    return __awaiter(this, void 0, void 0, function* () {
+        let results;
+        if (type && !id) {
+            results = yield db_control_1.default.getAll `SELECT images.id, images.account, images.file, image_types.type \
+        FROM images LEFT JOIN image_types ON images.type = image_types.id \
+        WHERE image_types.type = ${type}`;
+        }
+        else if (id && !type) {
+            results = yield db_control_1.default.get `SELECT images.id, images.account, images.file, image_types.type \
+        FROM images LEFT JOIN image_types ON  images.type = image_types.id \
+        WHERE images.id = ${id}`;
+        }
+        else if (type && id) {
+            results = yield db_control_1.default.getAll `SELECT images.id, images.file, image_types.type \
+        FROM images LEFT JOIN image_types ON  images.type =  image_types.id \
+        WHERE image_types = ${type} AND images.account = ${id}`;
+        }
+        else {
+            results = yield db_control_1.default.getAll `SELECT images.id, images.file, image_types.type \
+        FROM images LEFT JOIN image_types ON images.type = image_types.id `;
+        }
+    });
+}
+exports.getImagesByTypeOrId = getImagesByTypeOrId;
 //# sourceMappingURL=index.js.map
