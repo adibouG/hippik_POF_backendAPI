@@ -36,8 +36,10 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
+const app_1 = __importDefault(require("../app"));
 const Controllers = __importStar(require("../controllers"));
 const user_class_1 = require("../models/user.class");
+const sessions_class_1 = __importStar(require("../models/sessions.class"));
 const utils_1 = require("../utils/utils");
 const userRouter = express_1.default.Router();
 const checkAndRemovePwdData = (account /*, i:number, source: User[]*/) => {
@@ -51,6 +53,7 @@ const checkAndRemovePwdData = (account /*, i:number, source: User[]*/) => {
     }
 };
 userRouter.route('/api/users')
+    .all(app_1.default.get('authCheckMiddleware'))
     .get((req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const data = yield Controllers.getAccounts();
     console.log(data);
@@ -59,14 +62,7 @@ userRouter.route('/api/users')
     return res.send(data);
 }));
 userRouter.route('/api/users/:id')
-    .all((req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
-    //check token 
-    //log request
-    if (1)
-        next();
-    else
-        throw new Error();
-}))
+    .all(app_1.default.get('authCheckMiddleware'))
     .get((req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { id } = req.params;
     const data = yield Controllers.getAccount(Number(id));
@@ -82,53 +78,18 @@ userRouter.route('/api/users/:id')
     const data = yield Controllers.deleteAccount(Number(id));
     return res.send(data);
 }));
-class UserSession {
-    constructor(userid, ip) {
-        this.userid = userid;
-        this.ip = ip;
-        this.startDateTime = Date.now();
-        this.sessionid = userid + '.' + this.startDateTime;
-        this.endDateTime = null;
-    }
-}
-const sessions = {};
-const addSession = (sessionObj, sessionListObj) => {
-    if (!sessionListObj[sessionObj.userid] || sessionListObj[sessionObj.userid].endDateTime)
-        sessionListObj[sessionObj.userid] = sessionObj;
-    else
-        throw new Error('sessiom exist');
-};
-const deleteSession = (userid, sessionListObj) => {
-    if (sessionListObj[userid] && !sessionListObj[userid].endDateTime)
-        sessionListObj[userid].endDateTime = Date.now();
-    else
-        return false;
-};
 userRouter.route('/api/logout')
-    .all((req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
-    //session check 
-    //user check
-    next();
-}))
+    .all(app_1.default.get('authCheckMiddleware'))
     .post((req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const userdata = req.body;
-        const head = req.get('authorization');
-        let userId;
-        let sessionId;
-        if (head) {
-            const cred = head.split(' ').at(1);
-            const auth = btoa(cred);
-            userId = auth.split(':').at(0);
-            sessionId = auth.split(':').at(1);
-        }
+        let { userId, sessionId } = res.locals;
         const id = userdata.id;
+        let userSessionId = `${userId}::${sessionId}`;
         //   if (userId !=  id)   console.log (`userId ${userId} !=  id ${id}`)
-        if (!deleteSession(id, sessions))
-            deleteSession(Number(userId), sessions);
-        res.set('Clear-Site-Data', '"cache", "cookies", "storage", "executionContexts"');
-        res.set('Refresh', '0');
-        res.redirect('/');
+        if (sessions_class_1.default.sessionsList.has(userSessionId))
+            sessions_class_1.default.endSession(userSessionId);
+        res.set('Clear-Site-userSessions', '"cache", "cookies", "storage", "executionContexts"');
         return res.end();
     }
     catch (e) {
@@ -138,13 +99,6 @@ userRouter.route('/api/logout')
     }
 }));
 userRouter.route('/api/login')
-    .all((req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
-    //  const t = genrateSaltHashPassword ('test');
-    //  console.log (t.passwordHash);
-    //  console.log (t.salt);
-    //console.log (genrateSaltHashPassword ('test').passwordHash);
-    next();
-}))
     .post((req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
     const { user, pwd } = req.body;
     try {
@@ -157,11 +111,14 @@ userRouter.route('/api/login')
         if ((0, utils_1.comparePwd)(pwd, data.salt, data.pwd)) {
             const userObj = new user_class_1.User(data); // .id, , , data.email, data.name, data.createdBy, data.status, createDate, modDate);
             checkAndRemovePwdData(userObj);
-            const sessionData = new UserSession(userObj.id, req.ip);
-            sessions[sessionData.userid] = sessionData;
-            res.cookie('user', userObj);
-            res.cookie('sessionid', btoa(sessionData.sessionid));
-            return res.send(userObj);
+            const sessionData = new sessions_class_1.UserSession(userObj.id, req.ip);
+            if (sessions_class_1.default.sessionsList.addSession(sessionData)) {
+                res.cookie('user', JSON.stringify(userObj));
+                res.cookie('sessionid', sessionData.sessionid);
+                return res.send(userObj);
+            }
+            else {
+            }
         }
         else
             throw new Error('invalid user/pwd');

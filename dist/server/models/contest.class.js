@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.ContestTrial = exports.ContestList = exports.Contest = void 0;
+exports.ImageFile = exports.ContestTrial = exports.ContestList = exports.Contest = void 0;
 class ImageFile {
     constructor(file, type, id, accountId) {
         this.file = file;
@@ -9,6 +9,7 @@ class ImageFile {
         this.account = accountId;
     }
 }
+exports.ImageFile = ImageFile;
 class Contest {
     constructor({ id, name, userId, location, desc, startDate, endDate, status, images, createdDate, modifiedDate }) {
         this.id = id;
@@ -24,7 +25,7 @@ class Contest {
         if (images && images.length) {
             images.map((el => {
                 if (typeof el === 'string') {
-                    new ImageFile(el, 'contest', undefined, this.userId);
+                    return new ImageFile(el, 'contest', undefined, this.userId);
                 }
             }));
         }

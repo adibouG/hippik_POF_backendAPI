@@ -1,5 +1,6 @@
+import util from 'node:util';
 import db from '../../db/db_control';
-import { Contest, ContestList, ContestTrial } from '../models/contest.class';
+import { Contest, ContestList, ContestTrial, ImageFile} from '../models/contest.class';
 import { Participant } from '../models/participant.class';
 import {User, UserWithCred} from '../models/user.class';
 
@@ -139,7 +140,9 @@ async function checkContest (data: Contest): Promise<any>  {
         {
             const check = (d: Contest) => {
                 let isSameLoc = false;                
-                let isSameStartDate = false;                
+                let isSameStartDate = false;
+
+                d = new Contest (d)                
                 if (d.location === location) { isSameLoc = true; }
                 if (d.startDate === startDate) { isSameStartDate = true; }
                
@@ -168,12 +171,54 @@ async function updateContest (data: Contest) {
 async function createContest (data: Contest)  {
     try 
     {
-        let {name, location, startDate, endDate, createdDate, modifiedDate, status} = data;
-      
-        const row = await db.run`INSERT INTO contests(name, location, statdate, enddate, created, modified, status) \
-                VALUES (${name}, ${location}, ${startDate}, ${endDate}, ${createdDate}, ${modifiedDate}, ${status})`;
-        return row;        
+        let {name, location, startDate, endDate, createdDate, modifiedDate, status, images, userId } = data;
+       
+       const contestCreateWithImage = async () :Promise<number>=> {
+        
+        return await new Promise<number> ((resolve , reject) => {
+        
+            return db.db.run (`INSERT INTO contests \
+                        (name, location, startDate, endDate, created, modified, status, owner) \
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ? );`,
+                        [ name, location, startDate,endDate, createdDate,modifiedDate, status, userId] ,
+                        async function (err, row) {
+//        const contestId =  await db.get`SELECT id FROM contests WHERE name=${name} AND location=${location} AND startdate=${startDate} AND owner=${userId}`;        
+                    if (err)  {reject(err); return;}
+                
+                    const contestId : number= this.lastId;
+                     
+                
+              
+                    
+                    resolve(contestId)
+                    return contestId;
+                }
+            );
+        })
     }
+
+        const id: number = await contestCreateWithImage();
+        if (images)
+        {
+            for (let i of images) 
+            {
+                if (typeof i === 'string') 
+                {
+                    let rowId = await addImage (userId, i, 'contest') ;
+                    await imageToContest (rowId, id);
+
+            } 
+            else
+            {
+                const f = i as ImageFile;
+                let rowId = await addImage (f.account, f.file , f.type) ;
+                await imageToContest (rowId, id); 
+
+            }
+        }
+
+}}
+       
     catch (err)
     { 
         throw err;
@@ -356,16 +401,22 @@ async function createParticipant (data: Contest)  {
         
     }
 }
-
-
-async function addImage (userId: number, file: string, type: number): Promise<any>  {
-    
-    
-    const result = await db.run`INSERT INTO images (account, file, type) \
-                    VALUES (${userId}, ${file}, (SELECT id FROM image_types WHERE type=${type}))`;
-    console.log (JSON.stringify(result));
-    return result.lastID;
+async function imageToContest (imgId: number, contestId: number) 
+{
+    await db.run`INSERT INTO contest_medias (image, contest) \
+    VALUES (${imgId}, ${contestId})`;
 }
+
+async function addImage (userId: number|undefined, file: string, type: string): Promise<any>  {
+    
+    const typeId = await db.run`SELECT id FROM image_types WHERE type=${type}`;
+    await db.db.run`INSERT INTO images (account, file, type) \
+                    VALUES (${userId}, ${file}, (SELECT id FROM image_types WHERE type=${typeId}))`;
+
+    const rowId = await db.get`SELECT id FROM images WHERE account=${userId}, file=${file}, type=${typeId}`;
+    return rowId;
+}
+
 
 
 async function getImagesByTypeOrId (type?: string, id?: number) : Promise<any>  {

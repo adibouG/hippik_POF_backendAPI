@@ -1,6 +1,8 @@
 import express, { NextFunction, Request, Response, Router } from 'express';
+import app from '../app';
 import * as Controllers from '../controllers' ;
 import {User, UserWithCred} from '../models/user.class';
+import Sessions , {UserSession, UserSessionIdKey} from '../models/sessions.class'
 import {genrateSaltHashPassword, comparePwd} from '../utils/utils';
 const userRouter: Router = express.Router()
 
@@ -18,6 +20,7 @@ const checkAndRemovePwdData = ( account: User/*, i:number, source: User[]*/ ) =>
 }
 
 userRouter.route ('/api/users')
+.all (app.get ('authCheckMiddleware')) 
 .get (async (req: Request, res: Response) => {
   const data: User[] = await Controllers.getAccounts ();
   console.log (data)
@@ -28,12 +31,7 @@ userRouter.route ('/api/users')
 
 
 userRouter.route ('/api/users/:id')
-.all (async (req: Request, res: Response, next: NextFunction) => {
-//check token 
-//log request
-if (1) next ();
-else throw new Error ();
-})
+.all (app.get ('authCheckMiddleware')) 
 .get (async (req: Request, res: Response) => {
   const {id} = req.params; 
   const data = await Controllers.getAccount (Number (id));
@@ -51,76 +49,25 @@ else throw new Error ();
   return res.send (data);
 });
 
-interface Session {
-  userid : number,
-  ip: string,
-  sessionid: string,
-  startDateTime: Date | number,
-  endDateTime?:  Date | number | null
-}
 
-class UserSession implements Session {
-  userid : number;
-  ip: string;
-  sessionid: string;
-  startDateTime: Date | number;
-  endDateTime?:  Date | number | null;
-
-  constructor (userid: number, ip:string) {
-    this.userid = userid;
-    this.ip = ip;
-    this.startDateTime = Date.now ();
-    this.sessionid = userid + '.' + this.startDateTime ;
-    this.endDateTime = null;
-  }
-    
-}
-interface SessionList {
-  [id: number]: UserSession ;
-}
-const sessions: SessionList = {} ;
-
-const addSession = (sessionObj: UserSession, sessionListObj: SessionList) => { 
-  
-  if (!sessionListObj[sessionObj.userid] || sessionListObj[sessionObj.userid].endDateTime) sessionListObj[sessionObj.userid] = sessionObj ;
-  else throw new Error ('sessiom exist')
-
-}
-const deleteSession = (userid: number, sessionListObj: SessionList) => { 
-  
-  if (sessionListObj[userid] && !sessionListObj[userid].endDateTime) sessionListObj[userid].endDateTime = Date.now () ;
-  else return false;
-
-}
 
 userRouter.route ('/api/logout')
-.all (async (req: Request, res: Response, next: NextFunction) => {
-  
-//session check 
-//user check
-next();
-})
+.all (app.get ('authCheckMiddleware')) 
 .post (async (req: Request, res: Response, next: NextFunction) => {
   
   try
   { 
     const userdata = req.body ;
-    const head = req.get('authorization');
-    let userId;
-    let sessionId; 
-    if (head) { 
-      const cred = head.split (' ').at (1) as string ;
-      const auth = btoa (cred);
-      userId = auth.split(':').at (0);
-      sessionId = auth.split(':').at (1);
-    } 
+    let { userId, sessionId }  = res.locals;
+
     const id = userdata.id;
+    let userSessionId : UserSessionIdKey = `${userId}::${sessionId}`;
  //   if (userId !=  id)   console.log (`userId ${userId} !=  id ${id}`)
-    if (!deleteSession (id, sessions)) deleteSession (Number (userId), sessions)
+    if (Sessions.sessionsList.has (userSessionId)) Sessions.endSession (userSessionId)
     
-    res.set ('Clear-Site-Data', '"cache", "cookies", "storage", "executionContexts"');
-    res.set ('Refresh', '0');
-    res.redirect ('/');
+    res.set ('Clear-Site-userSessions', '"cache", "cookies", "storage", "executionContexts"');
+
+ 
     return res.end ();
   }
   catch (e)
@@ -131,14 +78,6 @@ next();
   }
 })
 userRouter.route ('/api/login')
-.all (async (req: Request, res: Response, next: NextFunction) => {
-  
-//  const t = genrateSaltHashPassword ('test');
-//  console.log (t.passwordHash);
-//  console.log (t.salt);
-//console.log (genrateSaltHashPassword ('test').passwordHash);
-next();
-})
 .post (async (req: Request, res: Response, next: NextFunction) => {
   const {user, pwd} = req.body ;
   try
@@ -151,10 +90,17 @@ next();
       const userObj = new User (data);// .id, , , data.email, data.name, data.createdBy, data.status, createDate, modDate);
       checkAndRemovePwdData (userObj);
       const sessionData = new UserSession (userObj.id, req.ip);
-      sessions[sessionData.userid] = sessionData;
-      res.cookie ('user', userObj);
-      res.cookie ('sessionid', btoa (sessionData.sessionid));
-      return res.send (userObj);
+    
+      if (Sessions.sessionsList.addSession(sessionData))
+      {      
+        res.cookie ('user', JSON.stringify(userObj));
+        res.cookie ('sessionid', sessionData.sessionid);
+        return res.send (userObj);
+      }
+      else 
+      {
+
+      }
     }
     else throw new Error ('invalid user/pwd') ;
   }

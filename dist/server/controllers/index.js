@@ -172,6 +172,7 @@ function checkContest(data) {
                 const check = (d) => {
                     let isSameLoc = false;
                     let isSameStartDate = false;
+                    d = new contest_class_1.Contest(d);
                     if (d.location === location) {
                         isSameLoc = true;
                     }
@@ -204,10 +205,39 @@ exports.updateContest = updateContest;
 function createContest(data) {
     return __awaiter(this, void 0, void 0, function* () {
         try {
-            let { name, location, startDate, endDate, createdDate, modifiedDate, status } = data;
-            const row = yield db_control_1.default.run `INSERT INTO contests(name, location, statdate, enddate, created, modified, status) \
-                VALUES (${name}, ${location}, ${startDate}, ${endDate}, ${createdDate}, ${modifiedDate}, ${status})`;
-            return row;
+            let { name, location, startDate, endDate, createdDate, modifiedDate, status, images, userId } = data;
+            const contestCreateWithImage = () => __awaiter(this, void 0, void 0, function* () {
+                return yield new Promise((resolve, reject) => {
+                    return db_control_1.default.db.run(`INSERT INTO contests \
+                        (name, location, startDate, endDate, created, modified, status, owner) \
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ? );`, [name, location, startDate, endDate, createdDate, modifiedDate, status, userId], function (err, row) {
+                        return __awaiter(this, void 0, void 0, function* () {
+                            //        const contestId =  await db.get`SELECT id FROM contests WHERE name=${name} AND location=${location} AND startdate=${startDate} AND owner=${userId}`;        
+                            if (err) {
+                                reject(err);
+                                return;
+                            }
+                            const contestId = this.lastId;
+                            resolve(contestId);
+                            return contestId;
+                        });
+                    });
+                });
+            });
+            const id = yield contestCreateWithImage();
+            if (images) {
+                for (let i of images) {
+                    if (typeof i === 'string') {
+                        let rowId = yield addImage(userId, i, 'contest');
+                        yield imageToContest(rowId, id);
+                    }
+                    else {
+                        const f = i;
+                        let rowId = yield addImage(f.account, f.file, f.type);
+                        yield imageToContest(rowId, id);
+                    }
+                }
+            }
         }
         catch (err) {
             throw err;
@@ -403,12 +433,19 @@ function createParticipant(data) {
     });
 }
 exports.createParticipant = createParticipant;
+function imageToContest(imgId, contestId) {
+    return __awaiter(this, void 0, void 0, function* () {
+        yield db_control_1.default.run `INSERT INTO contest_medias (image, contest) \
+    VALUES (${imgId}, ${contestId})`;
+    });
+}
 function addImage(userId, file, type) {
     return __awaiter(this, void 0, void 0, function* () {
-        const result = yield db_control_1.default.run `INSERT INTO images (account, file, type) \
-                    VALUES (${userId}, ${file}, (SELECT id FROM image_types WHERE type=${type}))`;
-        console.log(JSON.stringify(result));
-        return result.lastID;
+        const typeId = yield db_control_1.default.run `SELECT id FROM image_types WHERE type=${type}`;
+        yield db_control_1.default.db.run `INSERT INTO images (account, file, type) \
+                    VALUES (${userId}, ${file}, (SELECT id FROM image_types WHERE type=${typeId}))`;
+        const rowId = yield db_control_1.default.get `SELECT id FROM images WHERE account=${userId}, file=${file}, type=${typeId}`;
+        return rowId;
     });
 }
 exports.addImage = addImage;

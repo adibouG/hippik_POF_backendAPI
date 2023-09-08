@@ -49,7 +49,17 @@ const express_1 = __importDefault(require("express"));
 const multer_1 = __importDefault(require("multer"));
 const Controllers = __importStar(require("../controllers"));
 const contest_class_1 = require("../models/contest.class");
-const upload = (0, multer_1.default)({ dest: '../../files/' });
+const storage = multer_1.default.diskStorage({
+    destination: function (req, file, cb) {
+        cb(null, 'uploads/');
+    },
+    filename: function (req, file, cb) {
+        let name = file.originalname;
+        const unique = file.fieldname + '_' + Date.now() + '_' + name;
+        cb(null, name);
+    }
+});
+const upload = (0, multer_1.default)({ storage: storage });
 const contestRouter = express_1.default.Router();
 /*
 * Contest Routes
@@ -58,42 +68,24 @@ const contestRouter = express_1.default.Router();
 * The participants are challenging during the trials.
 * Each contest's participants register also to trial in order to be able to record their performance during the said trial.
 */
-const authHeaderCheck = (req, res, next) => {
-    const headr = req.get('authorization');
-    if (headr) {
-        const b64cred = headr.split(' ').at(1);
-        const auth = btoa(b64cred);
-        const [userId, sessionId] = auth.split(':');
-        //checkSession ()
-        res.locals = { userId, sessionId };
-        next();
-    }
-    else {
-        const err = new Error('invalid user session');
-        throw err;
-    }
-};
 contestRouter.route('/api/contests')
-    .all(authHeaderCheck)
+    //.all (app.get ('authCheckMiddleware')) 
     .get((req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
     const data = yield Controllers.getContests();
     return res.send(data);
 }))
     .post(upload.array('file'), (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
     const { name, location, startdate, enddate, desc } = req.body;
-    const { userId } = res.locals;
+    const { userId, sessionId } = res.locals;
     let check;
-    if (!(name && startdate && location))
+    if (!(name && location))
         throw new Error('missing required contest data');
     const images = [];
-    if (Array.isArray(req.files) && req.files.length)
+    if (req.files && Array.isArray(req.files) && req.files.length)
         req.files.forEach(el => {
-            if (el.path.endsWith('/') || el.path.endsWith('\\'))
-                images.push(el.path + el.filename);
-            else
-                images.push(el.path + '/' + el.filename);
+            images.push(el.path);
         });
-    const contestData = new contest_class_1.Contest({ name, userId, location,
+    const contestData = new contest_class_1.Contest({ name, userId: 2, location,
         startDate: new Date(startdate), endDate: new Date(enddate),
         desc, images });
     check = yield Controllers.checkContest(contestData);

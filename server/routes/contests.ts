@@ -9,13 +9,36 @@
 * These will be taken in account for the calculation of the contest end-results. 
 */
 
-import express, { NextFunction, Request, Response, Router, application } from 'express';
+import express, { NextFunction, Request, Response, Router, application, request } from 'express';
+import app from '../app';
 import fs from 'fs';
 import multer from 'multer';
 import * as Controllers from '../controllers';
 import { Contest } from '../models/contest.class';
-
-const upload = multer({ dest: '../../files/' })
+import Err from '../models/error.class';
+const storage = multer.diskStorage({
+  
+  destination: function (req, file, cb) {
+    cb(null, 'uploads/')
+  },
+  filename: function (req, file, cb) {
+    let name = file.originalname;
+    let fieldname = file.fieldname;
+    let pageName = req.path;
+    const unique = pageName + '_' + fieldname + '_'+  Date.now()   + '_' + name ;
+    cb(null, unique);
+  }
+})
+const upload = multer({ 
+  storage: storage,
+  limits: { fileSize: 1000000 /*1MB*/ },
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = ['image/*'];
+    if (!allowedTypes.includes(file.mimetype)) {
+      const error = new Err({message: 'Invalid file type'});
+      error.code = 'INVALID_FILE_TYPE';
+      return cb(error, false);
+    }})
 
 const contestRouter: Router = express.Router()
 
@@ -27,45 +50,26 @@ const contestRouter: Router = express.Router()
 * The participants are challenging during the trials.
 * Each contest's participants register also to trial in order to be able to record their performance during the said trial.  
 */
-const authHeaderCheck = (req: Request, res: Response, next: NextFunction) => {
-  
-  const headr = req.get('authorization');
-     
-  if (headr) { 
-    const b64cred = headr.split (' ').at (1) as string ;
-    const auth = btoa (b64cred);
-    const [userId, sessionId] = auth.split(':');
-    //checkSession ()
-    res.locals = {userId, sessionId};
-    next () ;
-  } 
-  else 
-  {
-    const err = new Error ('invalid user session') ;
-    throw err;
-  }
-}
 
 
 contestRouter.route ('/api/contests')
-.all (authHeaderCheck) 
+//.all (app.get ('authCheckMiddleware')) 
 .get (async (req: Request, res: Response, next: NextFunction) => {
   const data = await Controllers.getContests ();
   return res.send (data);
 })
 .post (upload.array ('file'), async (req: Request, res: Response, next: NextFunction) => {
   const { name, location, startdate, enddate, desc } = req.body;
-  const { userId } = res.locals;
+  const { userId, sessionId } = res.locals;
   let check;
-  if (!(name && startdate && location)) throw new Error ('missing required contest data')
+  if (!(name && location)) throw new Error ('missing required contest data')
   const images: string[] = [];
-  if (Array.isArray(req.files) &&  req.files.length) req.files.forEach (el => { 
-    if (el.path.endsWith('/') || el.path.endsWith('\\')) images.push (el.path + el.filename) ;
-    else images.push (el.path + '/' + el.filename) ;
+  if (req.files && Array.isArray(req.files) &&  req.files.length) req.files.forEach (el => { 
+   images.push (el.path) ;
   });
 
 
-  const contestData = new Contest ({ name, userId, location,
+  const contestData = new Contest ({ name, userId: 2, location,
                                       startDate: new Date(startdate), endDate: new Date(enddate),
                                       desc, images });
   check = await Controllers.checkContest (contestData);

@@ -47,7 +47,7 @@ class Contest {
                 images.map ((el => {
                     if (typeof el === 'string') 
                     {
-                        new ImageFile (el, 'contest',undefined ,this.userId);
+                        return new ImageFile (el, 'contest', undefined ,this.userId);
                     }
                 }))
             }
@@ -107,4 +107,4 @@ class ContestTrial  {
     }
 } 
 
-export { Contest, ContestList, ContestTrial };
+export { Contest, ContestList, ContestTrial, ImageFile };
